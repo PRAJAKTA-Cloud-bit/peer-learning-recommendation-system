@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PeerMatch — Find the Right Peer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --navy:#071A33;
+  --navy-soft:#0F2A4D;
+  --navy-card:#0C2545;
+  --blue:#2563EB;
+  --blue-deep:#1D4ED8;
+  --purple:#7C3AED;
+  --purple-deep:#6D28D9;
+  --sky:#38BDF8;
+  --lavender:#EDE9FE;
+  --green:#16A34A;
+  --amber:#F59E0B;
+  --off:#F8FAFC;
+  --lblue:#F1F7FF;
+  --ink:#0B1B33;
+  --ink-soft:#4B5A76;
+  --line: rgba(7,26,51,.09);
+  --shadow-s: 0 1px 2px rgba(7,26,51,.07), 0 1px 1px rgba(7,26,51,.04);
+  --shadow-m: 0 10px 28px -12px rgba(7,26,51,.22);
+  --shadow-l: 0 28px 60px -18px rgba(7,26,51,.30);
+  --shadow-ai: 0 22px 50px -14px rgba(124,58,237,.38);
+  --shadow-blue: 0 22px 50px -14px rgba(37,99,235,.35);
+  --r-s:10px; --r-m:16px; --r-l:24px; --r-xl:32px;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Inter',sans-serif;
+  color:var(--ink);
+  background:var(--off);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+h1,h2,h3,h4,.display{font-family:'Space Grotesk',sans-serif; letter-spacing:-0.01em;}
+.mono{font-family:'JetBrains Mono',monospace;}
+img{max-width:100%; display:block;}
+button{font-family:inherit; cursor:pointer; border:none; background:none;}
+a{color:inherit; text-decoration:none;}
+::selection{background:var(--lavender); color:var(--purple-deep);}
+
+/* ============ PROTOTYPE NAV (judge navigation, visually distinct utility strip) ============ */
+#proto-nav{
+  position:fixed; top:0; left:0; right:0; z-index:900;
+  background:var(--navy); color:#B9C6DC;
+  display:flex; align-items:center; gap:2px;
+  padding:0 14px; height:40px; overflow-x:auto;
+  font-size:12.5px; font-weight:500; border-bottom:1px solid rgba(255,255,255,.06);
+}
+#proto-nav .pn-label{color:#5E76A0; font-size:11px; margin-right:8px; white-space:nowrap; font-family:'JetBrains Mono',monospace; letter-spacing:.02em;}
+#proto-nav button{
+  padding:7px 12px; border-radius:7px; white-space:nowrap; color:#C7D3E8; transition:.15s;
+}
+#proto-nav button:hover{background:rgba(255,255,255,.08); color:#fff;}
+#proto-nav button.active{background:var(--blue); color:#fff;}
+
+.screen{ display:none; padding-top:40px; min-height:100vh; }
+.screen.active{ display:block; animation:fadeIn .35s ease; }
+@keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+/* ============ SHARED ============ */
+.wrap{max-width:1180px; margin:0 auto; padding:0 32px;}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  padding:14px 26px; border-radius:12px; font-weight:600; font-size:15px;
+  transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.btn-primary{background:var(--blue); color:#fff; box-shadow:var(--shadow-blue);}
+.btn-primary:hover{transform:translateY(-2px); box-shadow:0 26px 56px -14px rgba(37,99,235,.45);}
+.btn-ghost{background:#fff; color:var(--navy); border:1.5px solid var(--line);}
+.btn-ghost:hover{border-color:var(--blue); color:var(--blue);}
+.btn-dark{background:var(--navy); color:#fff;}
+.btn-dark:hover{transform:translateY(-2px);}
+.btn-ai{background:linear-gradient(135deg,var(--purple),var(--blue)); color:#fff; box-shadow:var(--shadow-ai);}
+.btn-ai:hover{transform:translateY(-2px);}
+.btn-sm{padding:9px 16px; font-size:13.5px; border-radius:9px;}
+.pill{display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:99px; font-size:12.5px; font-weight:600;}
+.pill-blue{background:var(--lblue); color:var(--blue-deep);}
+.pill-purple{background:var(--lavender); color:var(--purple-deep);}
+.pill-green{background:#E9F9EF; color:var(--green);}
+.card{background:#fff; border:1px solid var(--line); border-radius:var(--r-l); box-shadow:var(--shadow-m);}
+.section-head{max-width:640px; margin-bottom:44px;}
+.section-head .eyebrow{color:var(--blue); font-weight:600; font-size:14px; margin-bottom:10px;}
+.section-head h2{font-size:36px; line-height:1.2; color:var(--navy); font-weight:600;}
+.section-head p{margin-top:14px; font-size:16.5px; color:var(--ink-soft); line-height:1.6;}
+.chip{display:inline-flex; align-items:center; gap:6px; padding:8px 15px; border-radius:99px; border:1.5px solid var(--line); font-size:13.5px; font-weight:600; color:var(--ink-soft); background:#fff; transition:.15s; cursor:pointer;}
+.chip.on{background:var(--navy); border-color:var(--navy); color:#fff;}
+.chip.purple.on{background:var(--purple); border-color:var(--purple);}
+.check{width:17px; height:17px; border-radius:99px; background:var(--green); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;}
+.check svg{width:10px; height:10px;}
+
+/* ============================================================
+   LANDING
+   ============================================================ */
+#landing{background:var(--off);}
+.nav{
+  position:sticky; top:40px; z-index:100; background:rgba(248,250,252,.86); backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.nav-inner{max-width:1180px; margin:0 auto; padding:18px 32px; display:flex; align-items:center; justify-content:space-between;}
+.logo{display:flex; align-items:center; gap:9px; font-family:'Space Grotesk'; font-weight:700; font-size:19px; color:var(--navy);}
+.logo .mark{width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,var(--blue),var(--purple)); position:relative; flex-shrink:0;}
+.logo .mark::before, .logo .mark::after{content:''; position:absolute; width:8px; height:8px; border-radius:50%; background:#fff; top:50%; transform:translateY(-50%);}
+.logo .mark::before{left:5px;}
+.logo .mark::after{right:5px;}
+.nav-links{display:flex; align-items:center; gap:34px; font-size:14.5px; font-weight:500; color:var(--ink-soft);}
+.nav-links a:hover{color:var(--navy);}
+.nav-cta{display:flex; gap:12px; align-items:center;}
+
+/* hero */
+.hero{padding:100px 32px 90px; position:relative; overflow:hidden;}
+.hero::before{content:''; position:absolute; top:-140px; right:-160px; width:520px; height:520px; border-radius:50%;
+  background:radial-gradient(circle,rgba(124,58,237,.14),transparent 70%); pointer-events:none;}
+.hero::after{content:''; position:absolute; bottom:-160px; left:-140px; width:480px; height:480px; border-radius:50%;
+  background:radial-gradient(circle,rgba(37,99,235,.12),transparent 70%); pointer-events:none;}
+.hero-inner{max-width:1180px; margin:0 auto; text-align:center; position:relative;}
+.hero .pill{margin-bottom:26px;}
+.hero h1{font-size:58px; line-height:1.08; font-weight:700; color:var(--navy); max-width:900px; margin:0 auto;}
+.hero h1 .grad{background:linear-gradient(135deg,var(--blue),var(--purple)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+.hero p.sub{max-width:560px; margin:22px auto 36px; font-size:18px; color:var(--ink-soft); line-height:1.6;}
+.hero-cta{display:flex; gap:14px; justify-content:center; margin-bottom:70px;}
+
+/* match visual */
+.match-stage{max-width:920px; margin:0 auto; position:relative; height:280px;}
+.match-row{display:flex; align-items:center; justify-content:center; gap:0; height:100%; position:relative;}
+.profile-float{width:220px; background:#fff; border-radius:var(--r-l); border:1px solid var(--line); box-shadow:var(--shadow-l); padding:20px; position:relative; z-index:3; animation:floatY 5s ease-in-out infinite;}
+.profile-float.b{animation-delay:.6s;}
+.pf-top{display:flex; align-items:center; gap:11px;}
+.avatar{width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:15px; font-family:'Space Grotesk'; flex-shrink:0;}
+.pf-name{font-weight:600; font-size:14.5px; color:var(--navy);}
+.pf-role{font-size:12px; color:var(--ink-soft); margin-top:1px;}
+.pf-skills{display:flex; gap:6px; margin-top:14px; flex-wrap:wrap;}
+.mini-tag{font-size:11px; font-weight:600; padding:4px 9px; border-radius:99px; background:var(--lblue); color:var(--blue-deep);}
+@keyframes floatY{0%,100%{transform:translateY(0);} 50%{transform:translateY(-12px);}}
+
+.ai-core{
+  width:120px; height:120px; border-radius:50%; z-index:4; margin:0 -6px;
+  background:radial-gradient(circle at 35% 30%, #9061F9, var(--purple) 55%, var(--blue-deep) 100%);
+  display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-ai);
+  position:relative;
+}
+.ai-core .ring{position:absolute; inset:-14px; border-radius:50%; border:1.5px dashed rgba(124,58,237,.35); animation:spin 14s linear infinite;}
+.ai-core .ring2{position:absolute; inset:-30px; border-radius:50%; border:1px dashed rgba(37,99,235,.22); animation:spin 22s linear infinite reverse;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ai-core span{color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:13px; text-align:center; letter-spacing:.02em;}
+.link-line{position:absolute; top:50%; height:2px; width:90px; background:repeating-linear-gradient(90deg,var(--purple) 0 6px,transparent 6px 11px); z-index:2;}
+.link-line.l{left:calc(50% - 165px);}
+.link-line.r{right:calc(50% - 165px);}
+.compat-badge{
+  position:absolute; top:-6px; left:50%; transform:translateX(-50%); z-index:5;
+  background:var(--navy); color:#fff; padding:8px 16px; border-radius:99px; font-weight:700; font-size:14px;
+  box-shadow:var(--shadow-l); display:flex; align-items:center; gap:7px;
+}
+.compat-badge .dot{width:7px; height:7px; border-radius:50%; background:var(--green);}
+
+/* problem */
+.section{padding:96px 0;}
+.section.tint{background:var(--lblue);}
+.problem-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:24px;}
+.problem-card{background:#fff; border:1px solid var(--line); border-radius:var(--r-l); padding:30px; box-shadow:var(--shadow-s); transition:.2s;}
+.problem-card:hover{box-shadow:var(--shadow-m); transform:translateY(-3px);}
+.problem-ico{width:46px; height:46px; border-radius:12px; background:#FEF2F2; color:#DC2626; display:flex; align-items:center; justify-content:center; margin-bottom:18px;}
+.problem-card h3{font-size:18px; color:var(--navy); margin-bottom:9px;}
+.problem-card p{font-size:14.5px; color:var(--ink-soft); line-height:1.6;}
+
+/* solution */
+.solution-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:24px;}
+.sol-card{border-radius:var(--r-xl); padding:34px 28px; color:#fff; position:relative; overflow:hidden; box-shadow:var(--shadow-l); min-height:270px; display:flex; flex-direction:column;}
+.sol-card::after{content:''; position:absolute; inset:0; background:radial-gradient(circle at 85% 10%, rgba(255,255,255,.14), transparent 60%);}
+.sol-card .step-num{font-family:'JetBrains Mono'; font-size:12.5px; opacity:.7; margin-bottom:22px;}
+.sol-card h3{font-size:25px; margin-bottom:10px; position:relative;}
+.sol-card p{font-size:14.5px; opacity:.85; line-height:1.6; position:relative;}
+.sol-card .flow-tag{margin-top:auto; padding-top:22px; font-size:12.5px; font-weight:600; display:flex; align-items:center; gap:6px; opacity:.9;}
+.sol-1{background:linear-gradient(160deg,#0F2A4D,var(--navy));}
+.sol-2{background:linear-gradient(160deg,var(--purple),#5B21B6);}
+.sol-3{background:linear-gradient(160deg,var(--blue),var(--blue-deep));}
+
+/* features */
+.feat-block{display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; padding:70px 0; border-bottom:1px solid var(--line);}
+.feat-block:last-child{border-bottom:none;}
+.feat-block.rev{grid-template-columns:1fr 1fr;}
+.feat-block.rev .feat-visual{order:2;}
+.feat-tag{font-size:12.5px; font-weight:700; letter-spacing:.03em; margin-bottom:14px;}
+.feat-block h3{font-size:28px; color:var(--navy); margin-bottom:14px;}
+.feat-block p.desc{font-size:15.5px; color:var(--ink-soft); line-height:1.7; margin-bottom:22px;}
+.feat-list{display:flex; flex-direction:column; gap:11px;}
+.feat-list li{list-style:none; display:flex; align-items:center; gap:10px; font-size:14.5px; color:var(--navy); font-weight:500;}
+.feat-highlight{margin-top:24px; display:inline-flex; align-items:center; gap:9px; font-size:14px; font-weight:600; padding:10px 16px; border-radius:11px; background:var(--lblue); color:var(--blue-deep);}
+
+.feat-visual{background:#fff; border-radius:var(--r-l); border:1px solid var(--line); box-shadow:var(--shadow-l); padding:26px;}
+.mock-bar{height:9px; border-radius:5px; background:var(--line);}
+.mock-progress{height:9px; border-radius:5px; background:linear-gradient(90deg,var(--blue),var(--sky)); position:relative;}
+
+.skill-verify-flow{display:flex; flex-direction:column; gap:0;}
+.vf-step{display:flex; align-items:center; gap:14px; padding:14px 0;}
+.vf-step .vf-dot{width:34px; height:34px; border-radius:10px; background:var(--lblue); color:var(--blue-deep); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;}
+.vf-step.done .vf-dot{background:var(--green); color:#fff;}
+.vf-step .vf-text{font-size:14px; font-weight:600; color:var(--navy);}
+.vf-step .vf-sub{font-size:12px; color:var(--ink-soft);}
+.vf-connector{width:2px; height:16px; background:var(--line); margin-left:17px;}
+
+.ring-wrap{position:relative; width:150px; height:150px; margin:0 auto;}
+.ring-wrap svg{transform:rotate(-90deg);}
+.ring-bg{stroke:var(--line);}
+.ring-fg{stroke:url(#gradPurple); stroke-linecap:round; transition:stroke-dashoffset 1.4s cubic-bezier(.4,0,.2,1);}
+.ring-center{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+.ring-center .num{font-family:'Space Grotesk'; font-weight:700; font-size:30px; color:var(--navy);}
+.ring-center .lbl{font-size:11px; color:var(--ink-soft); font-weight:600;}
+
+/* how it works */
+.timeline{display:flex; gap:0; overflow-x:auto; padding-bottom:10px; scrollbar-width:thin;}
+.tl-step{flex:1; min-width:150px; text-align:center; position:relative; padding:0 8px;}
+.tl-line{position:absolute; top:23px; left:-50%; width:100%; height:2px; background:var(--line); z-index:0;}
+.tl-step:first-child .tl-line{display:none;}
+.tl-ico{width:46px; height:46px; border-radius:50%; background:#fff; border:2px solid var(--blue); color:var(--blue); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; position:relative; z-index:1; font-weight:700; font-family:'Space Grotesk';}
+.tl-step:nth-child(4) .tl-ico, .tl-step:nth-child(5) .tl-ico{border-color:var(--purple); color:var(--purple);}
+.tl-step h4{font-size:13.5px; color:var(--navy); font-weight:600; margin-bottom:5px;}
+.tl-step p{font-size:12px; color:var(--ink-soft); line-height:1.5;}
+
+/* final cta */
+.final-cta{background:linear-gradient(150deg,var(--navy) 0%, #0F2A4D 55%, #1B1240 100%); border-radius:var(--r-xl); padding:80px 40px; text-align:center; color:#fff; position:relative; overflow:hidden; margin:0 32px;}
+.final-cta::before{content:''; position:absolute; top:-100px; right:-100px; width:400px; height:400px; border-radius:50%; background:radial-gradient(circle,rgba(124,58,237,.35),transparent 65%);}
+.final-cta h2{font-size:38px; max-width:680px; margin:0 auto 16px; position:relative; font-weight:600;}
+.final-cta p{font-size:16px; opacity:.8; max-width:520px; margin:0 auto 34px; position:relative; line-height:1.6;}
+.final-cta .hero-cta{position:relative;}
+footer{padding:40px 32px; text-align:center; color:var(--ink-soft); font-size:13px;}
+
+/* ============================================================
+   APP SHELL (dashboard / analyser / recs / portfolio / progress / assessment)
+   ============================================================ */
+.app-shell{display:flex; min-height:calc(100vh - 40px);}
+.sidebar{width:236px; background:var(--navy); color:#fff; flex-shrink:0; display:flex; flex-direction:column; padding:24px 16px; position:sticky; top:40px; height:calc(100vh - 40px);}
+.sidebar .logo{color:#fff; margin-bottom:34px; padding:0 8px;}
+.side-link{display:flex; align-items:center; gap:12px; padding:11px 12px; border-radius:10px; font-size:14px; font-weight:500; color:#B9C6DC; margin-bottom:3px; transition:.15s;}
+.side-link svg{width:18px; height:18px; flex-shrink:0;}
+.side-link:hover{background:rgba(255,255,255,.06); color:#fff;}
+.side-link.active{background:linear-gradient(135deg,var(--blue),var(--purple)); color:#fff;}
+.side-divider{height:1px; background:rgba(255,255,255,.08); margin:14px 8px;}
+.side-user{margin-top:auto; display:flex; align-items:center; gap:10px; padding:12px 8px; border-top:1px solid rgba(255,255,255,.08);}
+.side-user .name{font-size:13px; font-weight:600;}
+.side-user .role{font-size:11px; color:#7C8CAD;}
+.main{flex:1; padding:36px 40px 80px; max-width:1180px;}
+.page-head{display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:30px; gap:20px; flex-wrap:wrap;}
+.page-head h1{font-size:27px; color:var(--navy); font-weight:600;}
+.page-head p{color:var(--ink-soft); font-size:14.5px; margin-top:6px;}
+.grid2{display:grid; grid-template-columns:2fr 1fr; gap:22px;}
+.stat-row{display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:22px;}
+.stat-card{background:#fff; border:1px solid var(--line); border-radius:var(--r-m); padding:20px; box-shadow:var(--shadow-s);}
+.stat-card .lbl{font-size:12.5px; color:var(--ink-soft); font-weight:600; margin-bottom:8px;}
+.stat-card .val{font-size:25px; font-family:'Space Grotesk'; font-weight:700; color:var(--navy);}
+.stat-card .sub{font-size:12px; color:var(--green); margin-top:5px; font-weight:600;}
+.panel{background:#fff; border:1px solid var(--line); border-radius:var(--r-l); box-shadow:var(--shadow-s); padding:26px; margin-bottom:22px;}
+.panel h3{font-size:16px; color:var(--navy); margin-bottom:16px; display:flex; align-items:center; justify-content:space-between;}
+.panel h3 .link{font-size:12.5px; color:var(--blue); font-weight:600;}
+.bar-track{height:9px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:6px;}
+.bar-fill{height:100%; border-radius:99px; background:linear-gradient(90deg,var(--blue),var(--sky)); transition:width 1.2s cubic-bezier(.4,0,.2,1); width:0%;}
+.bar-fill.purple{background:linear-gradient(90deg,var(--purple),#A78BFA);}
+.skill-row{display:flex; align-items:center; justify-content:between; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line);}
+.skill-row:last-child{border-bottom:none;}
+.skill-row .sname{font-size:14px; font-weight:600; color:var(--navy); display:flex; align-items:center; gap:8px;}
+
+.peer-card{display:flex; align-items:center; gap:14px; padding:16px; border:1px solid var(--line); border-radius:var(--r-m); transition:.15s;}
+.peer-card:hover{box-shadow:var(--shadow-m); border-color:transparent;}
+.peer-info{flex:1;}
+.peer-info .pn{font-size:15px; font-weight:600; color:var(--navy);}
+.peer-info .ps{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
+.peer-score{text-align:right; flex-shrink:0;}
+.peer-score .n{font-family:'Space Grotesk'; font-weight:700; font-size:20px; color:var(--purple-deep);}
+.peer-score .l{font-size:10.5px; color:var(--ink-soft); font-weight:600;}
+
+/* onboarding */
+#onboarding .ob-shell{max-width:760px; margin:0 auto; padding:50px 32px 90px;}
+.ob-progress-wrap{margin-bottom:40px;}
+.ob-progress-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;}
+.ob-progress-top .pct{font-family:'Space Grotesk'; font-weight:700; font-size:22px; color:var(--blue);}
+.ob-progress-top .lbl{font-size:13px; color:var(--ink-soft); font-weight:600;}
+.ob-steps{display:flex; gap:5px; margin-bottom:8px;}
+.ob-steps i{flex:1; height:5px; border-radius:99px; background:var(--line);}
+.ob-steps i.done{background:var(--blue);}
+.ob-note{background:var(--lblue); border:1px solid #DCE9FF; border-radius:12px; padding:13px 16px; font-size:13.5px; color:var(--blue-deep); display:flex; gap:10px; align-items:flex-start; margin-bottom:34px;}
+.ob-card{background:#fff; border:1px solid var(--line); border-radius:var(--r-l); box-shadow:var(--shadow-m); padding:38px;}
+.ob-card .step-eyebrow{font-size:12.5px; color:var(--purple); font-weight:700; margin-bottom:8px;}
+.ob-card h2{font-size:25px; color:var(--navy); margin-bottom:26px;}
+.field{margin-bottom:18px;}
+.field label{display:block; font-size:13px; font-weight:600; color:var(--navy); margin-bottom:7px;}
+.field input, .field select, .field textarea{width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:10px; font-size:14.5px; font-family:inherit; color:var(--navy); background:var(--off);}
+.field input:focus, .field select:focus, .field textarea:focus{outline:none; border-color:var(--blue); background:#fff;}
+.field-row{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+.photo-upload{width:84px; height:84px; border-radius:50%; border:2px dashed var(--line); display:flex; align-items:center; justify-content:center; color:var(--ink-soft); margin-bottom:20px; background:var(--off);}
+.chip-field{display:flex; flex-wrap:wrap; gap:10px; margin-top:8px;}
+.level-opt{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border:1.5px solid var(--line); border-radius:12px; margin-bottom:10px; cursor:pointer; transition:.15s;}
+.level-opt.on{border-color:var(--blue); background:var(--lblue);}
+.level-opt .lname{font-weight:600; font-size:14.5px; color:var(--navy);}
+.level-opt .ldesc{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+.radio-dot{width:19px; height:19px; border-radius:50%; border:2px solid var(--line); flex-shrink:0; position:relative;}
+.level-opt.on .radio-dot{border-color:var(--blue);}
+.level-opt.on .radio-dot::after{content:''; position:absolute; inset:3px; border-radius:50%; background:var(--blue);}
+.proj-card-mini{border:1.5px dashed var(--line); border-radius:12px; padding:16px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;}
+.add-proj-btn{width:100%; padding:13px; border:1.5px dashed var(--line); border-radius:12px; color:var(--blue); font-weight:600; font-size:13.5px; text-align:center;}
+.review-item{display:flex; justify-content:space-between; padding:13px 0; border-bottom:1px solid var(--line); font-size:14px;}
+.review-item .rk{color:var(--ink-soft);}
+.review-item .rv{font-weight:600; color:var(--navy); text-align:right;}
+.ob-nav{display:flex; justify-content:space-between; margin-top:28px;}
+.goal-card-ob{border:1.5px solid var(--line); border-radius:12px; padding:15px 16px; margin-bottom:10px; cursor:pointer; display:flex; gap:12px; align-items:flex-start;}
+.goal-card-ob.on{border-color:var(--purple); background:var(--lavender);}
+
+.complete-screen{text-align:center; padding:70px 20px;}
+.complete-check{width:90px; height:90px; border-radius:50%; background:linear-gradient(135deg,var(--green),#22C55E); display:flex; align-items:center; justify-content:center; margin:0 auto 26px; box-shadow:0 20px 40px -14px rgba(22,163,74,.4);}
+
+/* AI Analyser page */
+.analyser-hero{background:linear-gradient(150deg,var(--navy),#1B1240); border-radius:var(--r-xl); padding:44px; color:#fff; margin-bottom:26px; position:relative; overflow:hidden;}
+.analyser-hero::before{content:''; position:absolute; top:-80px; right:-60px; width:320px; height:320px; border-radius:50%; background:radial-gradient(circle,rgba(124,58,237,.4),transparent 65%);}
+.analyser-hero .tag{font-size:12.5px; font-weight:700; color:var(--sky); letter-spacing:.03em; margin-bottom:10px; position:relative;}
+.analyser-hero h1{font-size:28px; margin-bottom:8px; position:relative;}
+.analyser-hero p{opacity:.75; font-size:14.5px; max-width:480px; position:relative;}
+.process-visual{display:flex; align-items:center; justify-content:center; gap:22px; margin-top:34px; position:relative; flex-wrap:wrap;}
+.pv-node{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); border-radius:14px; padding:14px 18px; font-size:12.5px; font-weight:600; text-align:center; min-width:110px;}
+.pv-arrow{opacity:.5; font-size:16px;}
+.pv-core{width:76px; height:76px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#A78BFA,var(--purple) 60%); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:11px; box-shadow:0 0 0 8px rgba(124,58,237,.15); text-align:center; animation:pulseGlow 2.4s ease-in-out infinite;}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 8px rgba(124,58,237,.15);} 50%{box-shadow:0 0 0 16px rgba(124,58,237,.06);}}
+
+.process-log{display:flex; flex-direction:column; gap:10px;}
+.log-line{display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--ink-soft); opacity:0; transform:translateX(-8px); animation:logIn .4s forwards;}
+.log-line .lstat{width:16px; height:16px; border-radius:50%; border:2px solid var(--line); flex-shrink:0; position:relative;}
+.log-line.on .lstat{border-color:var(--green); background:var(--green);}
+.log-line.on{color:var(--navy); font-weight:600; opacity:1; transform:none;}
+@keyframes logIn{to{opacity:1; transform:none;}}
+
+.result-card{border:1.5px solid var(--lavender); background:linear-gradient(180deg,#fff,#FBFAFF); border-radius:var(--r-l); padding:28px; text-align:center;}
+.breakdown-row{display:flex; align-items:center; gap:14px; margin-bottom:16px;}
+.breakdown-row .bl{width:120px; font-size:13px; font-weight:600; color:var(--navy); flex-shrink:0;}
+.breakdown-row .bv{width:44px; text-align:right; font-family:'Space Grotesk'; font-weight:700; font-size:13.5px; color:var(--purple-deep); flex-shrink:0;}
+
+/* recommendations */
+.rank-card{display:flex; align-items:center; gap:18px; padding:22px; border-radius:var(--r-l); margin-bottom:16px; border:1px solid var(--line); background:#fff; box-shadow:var(--shadow-s);}
+.rank-card.top{border:2px solid var(--purple); box-shadow:var(--shadow-ai); padding:30px; background:linear-gradient(180deg,#fff,#FBFAFF);}
+.rank-num{width:38px; height:38px; border-radius:11px; background:var(--lblue); color:var(--blue-deep); display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk'; font-weight:700; flex-shrink:0;}
+.rank-card.top .rank-num{background:linear-gradient(135deg,var(--purple),var(--blue)); color:#fff; width:46px; height:46px;}
+.rank-avatar{width:52px; height:52px; border-radius:50%; flex-shrink:0;}
+.rank-card.top .rank-avatar{width:64px; height:64px;}
+.rank-tags{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+
+/* progress page */
+.prog-track3{display:flex; align-items:center; gap:0; margin:22px 0;}
+.prog-lvl{flex:1; text-align:center; padding:14px 8px; border-radius:11px; font-size:12.5px; font-weight:700; color:var(--ink-soft); background:var(--off); position:relative;}
+.prog-lvl.reached{background:var(--lblue); color:var(--blue-deep);}
+.prog-lvl.current{background:var(--blue); color:#fff;}
+.prog-connector{width:26px; height:2px; background:var(--line);}
+.reanalyse-flow{display:flex; align-items:center; gap:16px; flex-wrap:wrap; justify-content:center; padding:20px 0;}
+.ra-box{background:var(--off); border:1px solid var(--line); border-radius:12px; padding:14px 18px; text-align:center; min-width:130px;}
+.ra-box .rn{font-family:'Space Grotesk'; font-weight:700; font-size:19px; color:var(--navy);}
+.ra-box .rl{font-size:11.5px; color:var(--ink-soft); margin-top:2px;}
+.ra-box.after{border-color:var(--purple); background:var(--lavender);}
+.ra-box.after .rn{color:var(--purple-deep);}
+
+/* assessment */
+.q-card{padding:26px; border:1px solid var(--line); border-radius:var(--r-l); margin-bottom:16px;}
+.q-card .qn{font-size:12.5px; color:var(--ink-soft); font-weight:600; margin-bottom:8px;}
+.q-card h4{font-size:16px; color:var(--navy); margin-bottom:16px; font-weight:600;}
+.opt-row{display:flex; align-items:center; gap:12px; padding:13px 15px; border:1.5px solid var(--line); border-radius:11px; margin-bottom:9px; cursor:pointer; transition:.15s;}
+.opt-row:hover{border-color:var(--blue);}
+.opt-row.sel{border-color:var(--blue); background:var(--lblue);}
+.assess-meta{display:flex; gap:22px; margin:18px 0 28px;}
+.am-item{font-size:13px; color:var(--ink-soft);}
+.am-item b{color:var(--navy); display:block; font-size:16px; font-family:'Space Grotesk';}
+
+/* achievements */
+.badge{display:flex; align-items:center; gap:10px; padding:12px 14px; border:1px solid var(--line); border-radius:12px;}
+.badge .bico{width:36px; height:36px; border-radius:9px; background:linear-gradient(135deg,var(--amber),#FBBF24); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+.badge-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+
+/* Perring Help widget */
+#pf-btn{
+  position:fixed; bottom:26px; right:26px; z-index:800;
+  width:60px; height:60px; border-radius:50%;
+  background:linear-gradient(135deg,var(--purple),var(--blue));
+  box-shadow:var(--shadow-ai); display:flex; align-items:center; justify-content:center;
+  transition:transform .2s ease;
+}
+#pf-btn:hover{transform:scale(1.06);}
+#pf-btn svg{width:26px; height:26px; color:#fff;}
+#pf-panel{
+  position:fixed; bottom:98px; right:26px; z-index:800; width:350px; max-height:520px;
+  background:#fff; border-radius:20px; box-shadow:var(--shadow-l); border:1px solid var(--line);
+  display:none; flex-direction:column; overflow:hidden;
+}
+#pf-panel.open{display:flex; animation:panelIn .25s ease;}
+@keyframes panelIn{from{opacity:0; transform:translateY(14px) scale(.98);} to{opacity:1; transform:none;}}
+.pf-head{background:linear-gradient(120deg,var(--navy),#1B1240); color:#fff; padding:18px 20px; display:flex; align-items:center; gap:12px;}
+.pf-head .pf-ico{width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,var(--purple),var(--blue)); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+.pf-head .pf-t{font-size:15px; font-weight:700; font-family:'Space Grotesk';}
+.pf-head .pf-s{font-size:11.5px; opacity:.7;}
+.pf-close{margin-left:auto; opacity:.7; width:22px; height:22px; display:flex; align-items:center; justify-content:center;}
+.pf-close:hover{opacity:1;}
+#pf-body{flex:1; overflow-y:auto; padding:18px 16px; display:flex; flex-direction:column; gap:12px; background:var(--off);}
+.pf-msg{max-width:86%; padding:11px 14px; border-radius:14px; font-size:13.5px; line-height:1.5;}
+.pf-msg.bot{background:#fff; border:1px solid var(--line); color:var(--navy); align-self:flex-start; border-bottom-left-radius:4px;}
+.pf-msg.user{background:var(--blue); color:#fff; align-self:flex-end; border-bottom-right-radius:4px;}
+.pf-suggest{display:flex; flex-direction:column; gap:7px; margin-top:2px;}
+.pf-sugg-btn{text-align:left; padding:9px 12px; border:1px solid var(--line); border-radius:10px; font-size:12.5px; color:var(--blue-deep); background:#fff; font-weight:500;}
+.pf-sugg-btn:hover{background:var(--lblue); border-color:var(--blue);}
+#pf-input-row{display:flex; gap:8px; padding:14px; border-top:1px solid var(--line); background:#fff;}
+#pf-input{flex:1; border:1.5px solid var(--line); border-radius:11px; padding:10px 13px; font-size:13.5px; font-family:inherit;}
+#pf-input:focus{outline:none; border-color:var(--purple);}
+#pf-send{width:38px; height:38px; border-radius:10px; background:var(--purple); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+
+/* Icons */
+.ic{width:20px; height:20px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+
+/* responsive */
+@media(max-width:980px){
+  .hero h1{font-size:38px;}
+  .match-stage{height:auto;}
+  .match-row{flex-direction:column; gap:20px;}
+  .link-line{display:none;}
+  .problem-grid, .solution-grid{grid-template-columns:1fr;}
+  .feat-block, .feat-block.rev{grid-template-columns:1fr;}
+  .feat-block.rev .feat-visual{order:0;}
+  .grid2{grid-template-columns:1fr;}
+  .stat-row{grid-template-columns:1fr 1fr;}
+  .app-shell{flex-direction:column;}
+  .sidebar{width:100%; height:auto; position:relative; top:0; flex-direction:row; overflow-x:auto; padding:14px 16px; gap:4px;}
+  .sidebar .logo{display:none;}
+  .side-user, .side-divider{display:none;}
+  .side-link{white-space:nowrap;}
+  .main{padding:26px 18px 100px;}
+  .field-row{grid-template-columns:1fr;}
+  #pf-panel{width:calc(100vw - 32px); right:16px;}
+  .nav-links{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ PROTOTYPE NAVIGATOR ============ -->
+<div id="proto-nav">
+  <span class="pn-label">PEERMATCH · PROTOTYPE</span>
+  <button data-go="landing" class="active">Landing</button>
+  <button data-go="onboarding">Onboarding</button>
+  <button data-go="dashboard">Dashboard</button>
+  <button data-go="analyser">AI Analyser</button>
+  <button data-go="recommendations">Recommendations</button>
+  <button data-go="portfolio">Portfolio</button>
+  <button data-go="progress">Progress</button>
+  <button data-go="assessment">Assessment</button>
+</div>
+
+<!-- ============================================================
+     LANDING
+     ============================================================ -->
+<section class="screen active" id="landing">
+  <nav class="nav">
+    <div class="nav-inner">
+      <div class="logo"><div class="mark"></div>PeerMatch</div>
+      <div class="nav-links">
+        <a href="#problem">Why PeerMatch</a>
+        <a href="#solution">How it works</a>
+        <a href="#features">Features</a>
+      </div>
+      <div class="nav-cta">
+        <button class="btn btn-ghost btn-sm" data-go="onboarding">Sign in</button>
+        <button class="btn btn-primary btn-sm" data-go="onboarding">Get Started</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero-inner">
+      <span class="pill pill-purple">✦ AI-Powered Peer Learning</span>
+      <h1>Find the Right Peer. <span class="grad">Learn Better.</span> Grow Together.</h1>
+      <p class="sub">PeerMatch analyses verified skills, learning goals and progress to connect students with the study partner who actually fits — not just the nearest one.</p>
+      <div class="hero-cta">
+        <button class="btn btn-primary" data-go="onboarding">Get Started</button>
+        <button class="btn btn-ghost" data-go="analyser">See AI Analyser</button>
+      </div>
+
+      <div class="match-stage">
+        <div class="compat-badge"><span class="dot"></span> 87% Compatibility</div>
+        <div class="match-row">
+          <div class="profile-float">
+            <div class="pf-top">
+              <div class="avatar" style="background:linear-gradient(135deg,#2563EB,#38BDF8);">AP</div>
+              <div><div class="pf-name">Aarav Patel</div><div class="pf-role">Intermediate · SRM CS</div></div>
+            </div>
+            <div class="pf-skills"><span class="mini-tag">Python</span><span class="mini-tag">ML</span><span class="mini-tag">SQL</span></div>
+          </div>
+          <div class="link-line l"></div>
+          <div class="ai-core"><div class="ring"></div><div class="ring2"></div><span>AI<br>MATCH</span></div>
+          <div class="link-line r"></div>
+          <div class="profile-float b">
+            <div class="pf-top">
+              <div class="avatar" style="background:linear-gradient(135deg,#7C3AED,#A78BFA);">AS</div>
+              <div><div class="pf-name">Ananya Sharma</div><div class="pf-role">Intermediate · VIT CS</div></div>
+            </div>
+            <div class="pf-skills"><span class="mini-tag">Python</span><span class="mini-tag">ML</span><span class="mini-tag">Stats</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- PROBLEM -->
+  <section class="section" id="problem">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">The Problem</div>
+        <h2>Finding a peer is easy.<br>Finding the <em style="font-style:normal; color:var(--purple);">right</em> peer is not.</h2>
+      </div>
+      <div class="problem-grid">
+        <div class="problem-card">
+          <div class="problem-ico"><svg class="ic" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg></div>
+          <h3>Unverified Skills</h3>
+          <p>Students can claim any skill on a profile with nothing to back it up, so partners are chosen on trust alone.</p>
+        </div>
+        <div class="problem-card">
+          <div class="problem-ico"><svg class="ic" viewBox="0 0 24 24"><path d="M17 2.1 21 6l-4 3.9M3 12h18M7 21.9 3 18l4-3.9M21 12"/></svg></div>
+          <h3>Random Connections</h3>
+          <p>Traditional platforms group people by batch or department — never by whether their learning styles or goals actually match.</p>
+        </div>
+        <div class="problem-card">
+          <div class="problem-ico"><svg class="ic" viewBox="0 0 24 24"><path d="M3 3v18h18M18.7 8 13 13.7l-4-4L3 16"/></svg></div>
+          <h3>Static Recommendations</h3>
+          <p>A student's skill level and goals shift every week, but most systems recommend the same partner forever.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SOLUTION -->
+  <section class="section tint" id="solution">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Our Solution</div>
+        <h2>Verify → Analyse → Recommend</h2>
+        <p>A three-stage engine that turns a raw profile into a trustworthy, living match.</p>
+      </div>
+      <div class="solution-grid">
+        <div class="sol-card sol-1">
+          <div class="step-num">01 / VERIFY</div>
+          <h3>Verify</h3>
+          <p>Portfolio + skill assessment. Every claimed skill is checked before it counts toward a match.</p>
+          <div class="flow-tag">Portfolio → Assessment → Verified ✓</div>
+        </div>
+        <div class="sol-card sol-2">
+          <div class="step-num">02 / ANALYSE</div>
+          <h3>Analyse</h3>
+          <p>The AI Analyser reads verified skills, goals, interests and live progress to build a real learning profile.</p>
+          <div class="flow-tag">Profile → AI Analyser → Score</div>
+        </div>
+        <div class="sol-card sol-3">
+          <div class="step-num">03 / RECOMMEND</div>
+          <h3>Recommend</h3>
+          <p>The system ranks every possible partner by compatibility and surfaces the best one for collaborative learning.</p>
+          <div class="flow-tag">Compatibility → Best Peer</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section" id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Core Features</div>
+        <h2>What makes PeerMatch different?</h2>
+      </div>
+
+      <div class="feat-block">
+        <div class="feat-text">
+          <div class="feat-tag" style="color:var(--blue);">01 — MANDATORY PORTFOLIO</div>
+          <h3>Build your learning identity</h3>
+          <p class="desc">Every student completes a structured portfolio before entering the platform — skills, projects, goals, interests and progress, all in one place.</p>
+          <ul class="feat-list">
+            <li><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3" fill="none"><path d="M20 6 9 17l-5-5"/></svg></span>Skills, projects &amp; goals captured up front</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3" fill="none"><path d="M20 6 9 17l-5-5"/></svg></span>Interests and current progress tracked</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3" fill="none"><path d="M20 6 9 17l-5-5"/></svg></span>Continuously editable after sign-up</li>
+          </ul>
+          <div class="feat-highlight">Complete profile → Better matching</div>
+        </div>
+        <div class="feat-visual">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px;">
+            <span style="font-size:13px; font-weight:700; color:var(--navy);">Portfolio Completion</span>
+            <span style="font-family:'Space Grotesk'; font-weight:700; color:var(--blue); font-size:20px;">86%</span>
+          </div>
+          <div class="bar-track" style="margin-bottom:20px;"><div class="bar-fill" style="width:86%;"></div></div>
+          <div class="chip-field">
+            <span class="chip on">Python</span><span class="chip on">Machine Learning</span><span class="chip on">SQL</span><span class="chip">Data Viz</span>
+          </div>
+          <div style="margin-top:18px; display:flex; gap:10px;">
+            <div class="proj-card-mini" style="flex:1; margin:0;"><span style="font-size:13px; font-weight:600;">Spam Classifier</span><span class="pill pill-green" style="font-size:10px;">Project</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feat-block rev">
+        <div class="feat-text">
+          <div class="feat-tag" style="color:var(--green);">02 — VERIFIED SKILLS</div>
+          <h3>Know what students actually know</h3>
+          <p class="desc">Claimed skills are never taken at face value. Each one moves through an AI-proctored assessment before it's marked verified.</p>
+          <ul class="feat-list">
+            <li><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3" fill="none"><path d="M20 6 9 17l-5-5"/></svg></span>Python — Verified</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3" fill="none"><path d="M20 6 9 17l-5-5"/></svg></span>Machine Learning — Verified</li>
+          </ul>
+          <div class="feat-highlight" style="background:#E9F9EF; color:var(--green);">Claimed → Assessed → Verified</div>
+        </div>
+        <div class="feat-visual">
+          <div class="skill-verify-flow">
+            <div class="vf-step done"><div class="vf-dot">1</div><div><div class="vf-text">Claimed Skill</div><div class="vf-sub">Student adds "Python" to portfolio</div></div></div>
+            <div class="vf-connector"></div>
+            <div class="vf-step done"><div class="vf-dot">2</div><div><div class="vf-text">MCQ Assessment</div><div class="vf-sub">20 questions · 15 minutes</div></div></div>
+            <div class="vf-connector"></div>
+            <div class="vf-step done"><div class="vf-dot">3</div><div><div class="vf-text">AI Proctoring</div><div class="vf-sub">No major issues detected</div></div></div>
+            <div class="vf-connector"></div>
+            <div class="vf-step done"><div class="vf-dot"><svg class="ic" style="width:14px;height:14px;" viewBox="0 0 24 24" stroke="#fff"><path d="M20 6 9 17l-5-5"/></svg></div><div><div class="vf-text" style="color:var(--green);">Verified ✓</div><div class="vf-sub">Python — 86% score</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feat-block">
+        <div class="feat-text">
+          <div class="feat-tag" style="color:var(--purple);">03 — AI ANALYSER</div>
+          <h3>Let AI find your best peer</h3>
+          <p class="desc">The AI Analyser is the intelligence core of PeerMatch — it reads the full portfolio and returns a ranked, explainable match.</p>
+          <ul class="feat-list">
+            <li><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3" fill="none"><path d="M20 6 9 17l-5-5"/></svg></span>Skills, goals, progress compared in real time</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3" fill="none"><path d="M20 6 9 17l-5-5"/></svg></span>Every match comes with a "why" breakdown</li>
+          </ul>
+          <div class="feat-highlight" style="background:var(--lavender); color:var(--purple-deep);">AI Analysis → Compatibility → Best Peer</div>
+        </div>
+        <div class="feat-visual" style="text-align:center;">
+          <svg width="0" height="0"><defs><linearGradient id="gradPurple" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7C3AED"/><stop offset="100%" stop-color="#2563EB"/></linearGradient></defs></svg>
+          <div class="ring-wrap">
+            <svg width="150" height="150"><circle class="ring-bg" cx="75" cy="75" r="64" stroke-width="12" fill="none"/><circle class="ring-fg" id="landingRing" cx="75" cy="75" r="64" stroke-width="12" fill="none" stroke-dasharray="402" stroke-dashoffset="402"/></svg>
+            <div class="ring-center"><div class="num" id="landingRingNum">0%</div><div class="lbl">COMPATIBLE</div></div>
+          </div>
+          <div style="margin-top:16px; font-size:13.5px; color:var(--ink-soft);">Best Match — <b style="color:var(--navy);">Ananya Sharma</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="section tint">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">The Journey</div>
+        <h2>How it works</h2>
+      </div>
+      <div class="timeline">
+        <div class="tl-step"><div class="tl-line"></div><div class="tl-ico">1</div><h4>Register</h4><p>Create your account</p></div>
+        <div class="tl-step"><div class="tl-line"></div><div class="tl-ico">2</div><h4>Build Portfolio</h4><p>Mandatory learning profile</p></div>
+        <div class="tl-step"><div class="tl-line"></div><div class="tl-ico">3</div><h4>Verify Skills</h4><p>AI-proctored assessment</p></div>
+        <div class="tl-step"><div class="tl-line"></div><div class="tl-ico">✦</div><h4>AI Analyses</h4><p>Portfolio, goals &amp; progress</p></div>
+        <div class="tl-step"><div class="tl-line"></div><div class="tl-ico">✦</div><h4>Best Peer</h4><p>Ranked recommendation</p></div>
+        <div class="tl-step"><div class="tl-line"></div><div class="tl-ico">6</div><h4>Connect</h4><p>Start learning together</p></div>
+        <div class="tl-step"><div class="tl-line"></div><div class="tl-ico">7</div><h4>Update Progress</h4><p>Matches keep improving</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="section">
+    <div class="final-cta">
+      <h2>The right peer can change the way you learn.</h2>
+      <p>Create your portfolio. Verify your skills. Let AI analyse your learning profile and find your best peer.</p>
+      <div class="hero-cta">
+        <button class="btn btn-primary" data-go="onboarding">Get Started</button>
+        <button class="btn btn-ghost" style="background:rgba(255,255,255,.08); color:#fff; border-color:rgba(255,255,255,.2);" data-go="dashboard">Explore How It Works</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>PeerMatch doesn't just find a peer. It finds the right peer. · Smart India Hackathon Prototype</footer>
+</section>
+
+<!-- ============================================================
+     ONBOARDING
+     ============================================================ -->
+<section class="screen" id="onboarding">
+  <div class="ob-shell">
+    <div class="logo" style="margin-bottom:30px;"><div class="mark"></div>PeerMatch</div>
+    <div class="ob-progress-wrap" id="obProgressWrap">
+      <div class="ob-progress-top"><span class="lbl">Build Your PeerMatch Portfolio</span><span class="pct" id="obPct">11%</span></div>
+      <div class="ob-steps" id="obSteps"></div>
+    </div>
+    <div class="ob-note"><svg class="ic" viewBox="0 0 24 24" style="width:17px;height:17px;flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Your portfolio helps our AI understand you and find the right learning partner.</div>
+
+    <div class="ob-card" id="obCard"><!-- injected by JS --></div>
+
+    <div class="ob-nav">
+      <button class="btn btn-ghost" id="obBack">Back</button>
+      <button class="btn btn-primary" id="obNext">Continue</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     DASHBOARD
+     ============================================================ -->
+<section class="screen" id="dashboard">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar-dashboard"></aside>
+    <main class="main">
+      <div class="page-head">
+        <div>
+          <h1>Good morning, Aarav 👋</h1>
+          <p>Let's find the right learning partner for you.</p>
+        </div>
+        <button class="btn btn-ai btn-sm" data-go="analyser">✦ Run AI Analyser</button>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card"><div class="lbl">Profile Completion</div><div class="val">86%</div><div class="sub">▲ 4% this week</div></div>
+        <div class="stat-card"><div class="lbl">Verified Skills</div><div class="val">3</div><div class="sub">Python · ML · SQL</div></div>
+        <div class="stat-card"><div class="lbl">Current Progress</div><div class="val">72%</div><div class="sub">Machine Learning</div></div>
+        <div class="stat-card"><div class="lbl">Best Match</div><div class="val" style="color:var(--purple-deep);">87%</div><div class="sub" style="color:var(--purple-deep);">Ananya Sharma</div></div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="panel">
+            <h3>Verified Skills</h3>
+            <div class="skill-row"><span class="sname"><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>Python</span><span class="pill pill-green">Verified</span></div>
+            <div class="skill-row"><span class="sname"><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>Machine Learning</span><span class="pill pill-green">Verified</span></div>
+            <div class="skill-row"><span class="sname"><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>SQL</span><span class="pill pill-green">Verified</span></div>
+          </div>
+          <div class="panel">
+            <h3>Learning Goal</h3>
+            <div style="font-size:15px; font-weight:600; color:var(--navy); margin-bottom:12px;">Become proficient in Machine Learning</div>
+            <div style="display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft); margin-bottom:6px;"><span>Current Progress</span><span style="font-weight:700; color:var(--blue);">72%</span></div>
+            <div class="bar-track"><div class="bar-fill" data-width="72"></div></div>
+          </div>
+        </div>
+        <div>
+          <div class="panel" style="border-color:var(--lavender); background:linear-gradient(180deg,#fff,#FBFAFF);">
+            <h3>Recommended Peer <span class="link" data-go="recommendations">See all →</span></h3>
+            <div class="peer-card" style="border:none; padding:0;">
+              <img class="avatar" style="width:52px;height:52px;background:linear-gradient(135deg,#7C3AED,#A78BFA);" src="" alt="">
+              <div class="peer-info">
+                <div class="pn">Ananya Sharma</div>
+                <div class="ps">Python · Machine Learning</div>
+                <div class="pill pill-blue" style="margin-top:6px;">Intermediate</div>
+              </div>
+              <div class="peer-score"><div class="n">87%</div><div class="l">MATCH</div></div>
+            </div>
+            <button class="btn btn-primary btn-sm" style="width:100%; margin-top:16px;" data-go="analyser">Connect with Peer</button>
+          </div>
+          <div class="panel">
+            <h3>Portfolio Completion</h3>
+            <div class="ring-wrap" style="width:110px;height:110px;">
+              <svg width="110" height="110"><circle cx="55" cy="55" r="46" stroke="#EEF2F7" stroke-width="9" fill="none"/><circle cx="55" cy="55" r="46" stroke="url(#gradPurple)" stroke-width="9" fill="none" stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="41" transform="rotate(-90 55 55)"/></svg>
+              <div class="ring-center"><div class="num" style="font-size:20px;">86%</div></div>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:14px;" data-go="portfolio">Update Portfolio</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ============================================================
+     AI ANALYSER
+     ============================================================ -->
+<section class="screen" id="analyser">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar-analyser"></aside>
+    <main class="main">
+      <div class="analyser-hero">
+        <div class="tag">✦ CORE INTELLIGENCE</div>
+        <h1>PeerMatch AI Analyser</h1>
+        <p>Analysing your portfolio to find the most compatible learning partners.</p>
+        <div class="process-visual">
+          <div class="pv-node">Your Portfolio</div>
+          <div class="pv-arrow">→</div>
+          <div class="pv-node">Verified Skills</div>
+          <div class="pv-arrow">→</div>
+          <div class="pv-core">AI<br>ANALYSER</div>
+          <div class="pv-arrow">→</div>
+          <div class="pv-node">Compatibility Calc</div>
+          <div class="pv-arrow">→</div>
+          <div class="pv-node" style="background:rgba(124,58,237,.25); border-color:rgba(124,58,237,.4);">Best Peer</div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="panel">
+            <h3>Analysis in Progress</h3>
+            <div class="process-log" id="processLog">
+              <div class="log-line" data-delay="0"><span class="lstat"></span>Analysing verified skills…</div>
+              <div class="log-line" data-delay="700"><span class="lstat"></span>Comparing learning goals…</div>
+              <div class="log-line" data-delay="1400"><span class="lstat"></span>Evaluating interests…</div>
+              <div class="log-line" data-delay="2100"><span class="lstat"></span>Comparing learning progress…</div>
+              <div class="log-line" data-delay="2800"><span class="lstat"></span>Ranking candidate peers…</div>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Compatibility Breakdown</h3>
+            <div class="breakdown-row"><div class="bl">Skill Match</div><div class="bar-track" style="flex:1;"><div class="bar-fill purple" data-width="92"></div></div><div class="bv">92%</div></div>
+            <div class="breakdown-row"><div class="bl">Goal Match</div><div class="bar-track" style="flex:1;"><div class="bar-fill purple" data-width="88"></div></div><div class="bv">88%</div></div>
+            <div class="breakdown-row"><div class="bl">Interest Match</div><div class="bar-track" style="flex:1;"><div class="bar-fill purple" data-width="84"></div></div><div class="bv">84%</div></div>
+            <div class="breakdown-row"><div class="bl">Progress Match</div><div class="bar-track" style="flex:1;"><div class="bar-fill purple" data-width="85"></div></div><div class="bv">85%</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="result-card">
+            <div class="pill pill-purple" style="margin-bottom:14px;">Top Match</div>
+            <img class="avatar" style="width:64px;height:64px;margin:0 auto 12px;background:linear-gradient(135deg,#7C3AED,#A78BFA);font-size:20px;" src="" alt="">
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:18px; color:var(--navy);">Ananya Sharma</div>
+            <div style="font-size:12.5px; color:var(--ink-soft); margin-bottom:18px;">VIT · Computer Science · Intermediate</div>
+            <div class="ring-wrap">
+              <svg width="150" height="150"><circle class="ring-bg" cx="75" cy="75" r="64" stroke-width="12" fill="none"/><circle class="ring-fg" id="analyserRing" cx="75" cy="75" r="64" stroke-width="12" fill="none" stroke-dasharray="402" stroke-dashoffset="402"/></svg>
+              <div class="ring-center"><div class="num" id="analyserRingNum">0%</div><div class="lbl">COMPATIBLE</div></div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:22px;">
+              <button class="btn btn-ghost btn-sm" style="flex:1;" data-go="portfolio">View Full Analysis</button>
+              <button class="btn btn-ai btn-sm" style="flex:1;" data-go="recommendations">Connect with Peer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ============================================================
+     RECOMMENDATIONS
+     ============================================================ -->
+<section class="screen" id="recommendations">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar-recommendations"></aside>
+    <main class="main">
+      <div class="page-head">
+        <div><h1>Your Best Learning Matches</h1><p>Recommended using your verified profile and current learning progress.</p></div>
+      </div>
+
+      <div class="rank-card top">
+        <div class="rank-num">#1</div>
+        <img class="rank-avatar" style="border-radius:50%;background:linear-gradient(135deg,#7C3AED,#A78BFA);" src="" alt="">
+        <div class="peer-info">
+          <div class="pn" style="font-size:18px;">Ananya Sharma</div>
+          <div class="ps">Python · Machine Learning · Intermediate</div>
+          <div class="rank-tags"><span class="pill pill-purple">Shared Goal: Build ML Projects</span></div>
+        </div>
+        <div class="peer-score"><div class="n" style="font-size:27px;">87%</div><div class="l">MATCH</div></div>
+        <button class="btn btn-ai btn-sm" data-go="analyser">Connect</button>
+      </div>
+
+      <div class="rank-card">
+        <div class="rank-num">#2</div>
+        <img class="rank-avatar" style="border-radius:50%;background:linear-gradient(135deg,#2563EB,#38BDF8);" src="" alt="">
+        <div class="peer-info"><div class="pn">Rahul Mehta</div><div class="ps">Python · Data Analysis · Intermediate</div></div>
+        <div class="peer-score"><div class="n">72%</div><div class="l">MATCH</div></div>
+        <button class="btn btn-ghost btn-sm">Connect</button>
+      </div>
+
+      <div class="rank-card">
+        <div class="rank-num">#3</div>
+        <img class="rank-avatar" style="border-radius:50%;background:linear-gradient(135deg,#16A34A,#4ADE80);" src="" alt="">
+        <div class="peer-info"><div class="pn">Priya Shah</div><div class="ps">SQL · Machine Learning · Beginner</div></div>
+        <div class="peer-score"><div class="n">64%</div><div class="l">MATCH</div></div>
+        <button class="btn btn-ghost btn-sm">Connect</button>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ============================================================
+     PORTFOLIO
+     ============================================================ -->
+<section class="screen" id="portfolio">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar-portfolio"></aside>
+    <main class="main">
+      <div class="page-head">
+        <div style="display:flex; gap:16px; align-items:center;">
+          <img class="avatar" style="width:64px;height:64px;font-size:20px;background:linear-gradient(135deg,#2563EB,#38BDF8);" src="" alt="">
+          <div><h1>Aarav Patel</h1><p>SRM Institute of Science &amp; Technology · B.Tech CSE · Year 3</p></div>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-ghost btn-sm">Edit Portfolio</button>
+          <button class="btn btn-ai btn-sm" data-go="analyser">✦ Re-analyse My Matches</button>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="panel">
+            <h3>About Me</h3>
+            <p style="font-size:14.5px; color:var(--ink-soft); line-height:1.7;">Third-year Computer Science student focused on machine learning and applied statistics. Currently building small ML projects and preparing for research internships.</p>
+          </div>
+          <div class="panel">
+            <h3>Verified Skills</h3>
+            <div class="skill-row"><span class="sname"><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>Python</span><span class="pill pill-green">Verified</span></div>
+            <div class="skill-row"><span class="sname"><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>Machine Learning</span><span class="pill pill-green">Verified</span></div>
+            <div class="skill-row"><span class="sname"><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>SQL</span><span class="pill pill-green">Verified</span></div>
+          </div>
+          <div class="panel">
+            <h3>Projects</h3>
+            <div class="proj-card-mini"><div><div style="font-weight:600; font-size:14px; color:var(--navy);">Email Spam Classifier</div><div style="font-size:12px; color:var(--ink-soft); margin-top:2px;">Python · scikit-learn</div></div><span class="pill pill-blue">Project</span></div>
+            <div class="proj-card-mini"><div><div style="font-weight:600; font-size:14px; color:var(--navy);">Student Grade Predictor</div><div style="font-size:12px; color:var(--ink-soft); margin-top:2px;">Python · Pandas</div></div><span class="pill pill-blue">Project</span></div>
+          </div>
+          <div class="panel">
+            <h3>Achievements</h3>
+            <div class="badge-grid">
+              <div class="badge"><div class="bico"><svg class="ic" style="width:18px;height:18px;color:#fff;" viewBox="0 0 24 24"><path d="M12 2 15 8l6 1-4.5 4.4L17.6 20 12 16.9 6.4 20l1.1-6.6L3 9l6-1Z"/></svg></div><div style="font-size:13px; font-weight:600; color:var(--navy);">Skill Verified<br><span style="font-weight:400; color:var(--ink-soft); font-size:11.5px;">Python, ML, SQL</span></div></div>
+              <div class="badge"><div class="bico"><svg class="ic" style="width:18px;height:18px;color:#fff;" viewBox="0 0 24 24"><path d="M12 2 15 8l6 1-4.5 4.4L17.6 20 12 16.9 6.4 20l1.1-6.6L3 9l6-1Z"/></svg></div><div style="font-size:13px; font-weight:600; color:var(--navy);">5 Peers Connected<br><span style="font-weight:400; color:var(--ink-soft); font-size:11.5px;">Active collaborator</span></div></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="panel">
+            <h3>Learning Goals</h3>
+            <div class="goal-card-ob on" style="cursor:default;"><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span><div><div style="font-weight:600; font-size:13.5px; color:var(--navy);">Become proficient in Machine Learning</div><div style="font-size:12px; color:var(--ink-soft); margin-top:2px;">72% progress</div></div></div>
+          </div>
+          <div class="panel">
+            <h3>Interests</h3>
+            <div class="chip-field"><span class="chip on">AI</span><span class="chip on">Data Science</span><span class="chip on">Cloud</span></div>
+          </div>
+          <div class="panel">
+            <h3>Learning Progress</h3>
+            <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span>Python</span><span style="font-weight:700;">90%</span></div>
+            <div class="bar-track" style="margin-bottom:14px;"><div class="bar-fill" data-width="90"></div></div>
+            <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span>Machine Learning</span><span style="font-weight:700;">72%</span></div>
+            <div class="bar-track" style="margin-bottom:14px;"><div class="bar-fill" data-width="72"></div></div>
+            <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><span>SQL</span><span style="font-weight:700;">80%</span></div>
+            <div class="bar-track"><div class="bar-fill" data-width="80"></div></div>
+          </div>
+          <div class="panel">
+            <h3>Portfolio Completion</h3>
+            <div class="bar-track"><div class="bar-fill" data-width="86"></div></div>
+            <div style="font-size:12px; color:var(--ink-soft); margin-top:8px;">86% complete — add a certification to reach 100%.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ============================================================
+     PROGRESS
+     ============================================================ -->
+<section class="screen" id="progress">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar-progress"></aside>
+    <main class="main">
+      <div class="page-head"><div><h1>Learning Progress</h1><p>PeerMatch is a living system — recommendations move as your skills do.</p></div></div>
+
+      <div class="panel">
+        <h3>Python</h3>
+        <div class="prog-track3">
+          <div class="prog-lvl reached">Beginner</div><div class="prog-connector"></div>
+          <div class="prog-lvl current">Intermediate</div><div class="prog-connector"></div>
+          <div class="prog-lvl">Advanced</div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft); margin-bottom:6px;"><span>Previous: Beginner</span><span>Current: Intermediate</span></div>
+        <div class="bar-track"><div class="bar-fill" data-width="72"></div></div>
+        <div style="text-align:right; font-size:12.5px; font-weight:700; color:var(--blue); margin-top:6px;">72%</div>
+      </div>
+
+      <div class="panel" style="border-color:var(--lavender); background:linear-gradient(180deg,#fff,#FBFAFF);">
+        <h3>✦ Dynamic Re-analysis</h3>
+        <p style="font-size:13.5px; color:var(--ink-soft); margin-bottom:6px;">As your skills and progress change, PeerMatch re-analyses your profile and improves future recommendations.</p>
+        <div class="reanalyse-flow">
+          <div class="ra-box"><div class="rn">78%</div><div class="rl">Peer A — Before</div></div>
+          <div class="pv-arrow">→</div>
+          <div class="ra-box" style="border-color:var(--blue); background:var(--lblue);"><div class="rn" style="color:var(--blue-deep);">↑</div><div class="rl">Student improves Python</div></div>
+          <div class="pv-arrow">→</div>
+          <div class="ra-box"><div class="rn">↻</div><div class="rl">AI Re-analysis</div></div>
+          <div class="pv-arrow">→</div>
+          <div class="ra-box after"><div class="rn">91%</div><div class="rl">Peer B — After</div></div>
+        </div>
+        <button class="btn btn-ai btn-sm" style="margin-top:6px;" data-go="analyser">Re-run AI Analyser</button>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ============================================================
+     ASSESSMENT
+     ============================================================ -->
+<section class="screen" id="assessment">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar-assessment"></aside>
+    <main class="main">
+      <div class="page-head"><div><h1>Python Skill Assessment</h1><p>Complete this assessment to verify your Python skill.</p></div></div>
+
+      <div class="assess-meta">
+        <div class="am-item"><b>20</b>Questions</div>
+        <div class="am-item"><b>15 min</b>Duration</div>
+        <div class="am-item"><b>Intermediate</b>Level</div>
+      </div>
+
+      <div class="q-card">
+        <div class="qn">QUESTION 3 OF 20</div>
+        <h4>What does the following code return? <span class="mono">len([1,2,3] + [4,5])</span></h4>
+        <div class="opt-row" data-opt="1"><span class="radio-dot"></span>3</div>
+        <div class="opt-row sel" data-opt="2"><span class="radio-dot"></span>5</div>
+        <div class="opt-row" data-opt="3"><span class="radio-dot"></span>2</div>
+        <div class="opt-row" data-opt="4"><span class="radio-dot"></span>Error</div>
+      </div>
+      <button class="btn btn-primary" id="submitAssessBtn">Submit Assessment</button>
+
+      <div class="panel" id="assessResult" style="display:none; margin-top:26px; text-align:center;">
+        <div class="pill pill-green" style="margin-bottom:16px;">Assessment Result</div>
+        <div class="ring-wrap">
+          <svg width="150" height="150"><circle class="ring-bg" cx="75" cy="75" r="64" stroke-width="12" fill="none"/><circle cx="75" cy="75" r="64" stroke-width="12" fill="none" stroke="#16A34A" stroke-linecap="round" stroke-dasharray="402" stroke-dashoffset="56" transform="rotate(-90 75 75)"/></svg>
+          <div class="ring-center"><div class="num">86%</div></div>
+        </div>
+        <div style="font-size:17px; font-weight:700; color:var(--green); margin:14px 0 4px;">Python — Verified ✓</div>
+        <div style="font-size:13px; color:var(--ink-soft);">AI Proctoring: No major issues detected</div>
+        <button class="btn btn-primary btn-sm" style="margin-top:18px;" data-go="portfolio">Back to Portfolio</button>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ============ PERRING HELP WIDGET ============ -->
+<button id="pf-btn" aria-label="Open Perring Help">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.97-4.03 9-9 9-1.5 0-2.9-.37-4.14-1.02L3 21l1.05-3.68A8.96 8.96 0 0 1 3 12c0-4.97 4.03-9 9-9s9 4.03 9 9Z"/></svg>
+</button>
+
+<div id="pf-panel">
+  <div class="pf-head">
+    <div class="pf-ico"><svg class="ic" style="width:18px;height:18px;color:#fff;" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.97-4.03 9-9 9-1.5 0-2.9-.37-4.14-1.02L3 21l1.05-3.68A8.96 8.96 0 0 1 3 12c0-4.97 4.03-9 9-9s9 4.03 9 9Z"/></svg></div>
+    <div><div class="pf-t">Perring Help</div><div class="pf-s">Your PeerMatch Learning Assistant</div></div>
+    <div class="pf-close" id="pfClose"><svg class="ic" style="width:18px;height:18px;" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+  </div>
+  <div id="pf-body"></div>
+  <div id="pf-input-row">
+    <input id="pf-input" type="text" placeholder="Ask about PeerMatch…">
+    <button id="pf-send"><svg class="ic" style="width:16px;height:16px;color:#fff;" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg></button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+const sideNavItems = [
+  {id:'dashboard', label:'Dashboard', icon:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'},
+  {id:'analyser', label:'AI Analyser', icon:'<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/>'},
+  {id:'recommendations', label:'Recommendations', icon:'<circle cx="9" cy="7" r="3.5"/><path d="M2 21c0-3.9 3.1-7 7-7s7 3.1 7 7"/><circle cx="18" cy="8" r="2.5"/><path d="M15.5 21c0-2.5 1.5-4.5 4-4.8"/>'},
+  {id:'portfolio', label:'Portfolio', icon:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v0"/>'},
+  {id:'progress', label:'Progress', icon:'<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'},
+  {id:'assessment', label:'Assessment', icon:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'},
+];
+function renderSidebar(activeId){
+  const el = document.getElementById('sidebar-'+activeId);
+  if(!el) return;
+  let html = '<div class="logo"><div class="mark"></div>PeerMatch</div>';
+  sideNavItems.forEach(item=>{
+    html += `<button class="side-link ${item.id===activeId?'active':''}" data-go="${item.id}">
+      <svg class="ic" viewBox="0 0 24 24">${item.icon}</svg>${item.label}
+    </button>`;
+  });
+  html += `<div class="side-divider"></div>
+    <button class="side-link" data-go="landing"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg>Landing Site</button>
+    <div class="side-user">
+      <div class="avatar" style="width:34px;height:34px;font-size:12px;background:linear-gradient(135deg,#2563EB,#38BDF8);">AP</div>
+      <div><div class="name">Aarav Patel</div><div class="role">Intermediate · CSE</div></div>
+    </div>`;
+  el.innerHTML = html;
+}
+['dashboard','analyser','recommendations','portfolio','progress','assessment'].forEach(renderSidebar);
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const target = document.getElementById(id);
+  if(target) target.classList.add('active');
+  document.querySelectorAll('#proto-nav button').forEach(b=>b.classList.toggle('active', b.dataset.go===id));
+  window.scrollTo({top:0, behavior:'instant' in window ? 'instant':'auto'});
+  if(id==='analyser') runAnalyserAnimation();
+  if(id!=='onboarding'){} // no-op
+  animateBars(target);
+}
+document.addEventListener('click', e=>{
+  const btn = e.target.closest('[data-go]');
+  if(btn){ showScreen(btn.dataset.go); }
+});
+
+function animateBars(scope){
+  if(!scope) return;
+  scope.querySelectorAll('.bar-fill[data-width]').forEach(b=>{
+    const w = b.dataset.width;
+    b.style.width='0%';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ b.style.width = w+'%'; }));
+  });
+}
+
+/* landing ring + on-load bars */
+window.addEventListener('load', ()=>{
+  animateBars(document.getElementById('landing'));
+  const ring = document.getElementById('landingRing');
+  const num = document.getElementById('landingRingNum');
+  animateRing(ring, num, 87, 402);
+});
+
+function animateRing(ringEl, numEl, target, circumference){
+  if(!ringEl) return;
+  const offset = circumference - (target/100)*circumference;
+  setTimeout(()=>{ ringEl.style.strokeDashoffset = offset; },200);
+  let cur = 0;
+  const step = ()=>{
+    cur += Math.max(1, Math.round((target-cur)/8));
+    if(cur>=target){ cur=target; }
+    if(numEl) numEl.textContent = cur+'%';
+    if(cur<target) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/* ============================================================
+   AI ANALYSER PROCESS ANIMATION
+   ============================================================ */
+let analyserRan = false;
+function runAnalyserAnimation(){
+  const lines = document.querySelectorAll('#processLog .log-line');
+  lines.forEach(l=>l.classList.remove('on'));
+  lines.forEach(l=>{
+    const d = parseInt(l.dataset.delay,10);
+    setTimeout(()=>l.classList.add('on'), d);
+  });
+  const ring = document.getElementById('analyserRing');
+  const num = document.getElementById('analyserRingNum');
+  ring.style.strokeDashoffset = 402;
+  num.textContent = '0%';
+  setTimeout(()=>animateRing(ring, num, 87, 402), 3200);
+  animateBars(document.getElementById('analyser'));
+}
+
+/* ============================================================
+   ONBOARDING WIZARD
+   ============================================================ */
+const obSteps = [
+  {
+    key:'personal', eyebrow:'STEP 1 OF 9', title:'Personal Information',
+    body:`<div class="photo-upload"><svg class="ic" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg></div>
+    <div class="field"><label>Full Name</label><input type="text" value="Aarav Patel"></div>
+    <div class="field"><label>Email</label><input type="text" value="aarav.patel@srmist.edu.in"></div>`
+  },
+  {
+    key:'education', eyebrow:'STEP 2 OF 9', title:'Education',
+    body:`<div class="field"><label>College / Institution</label><input type="text" value="SRM Institute of Science & Technology"></div>
+    <div class="field-row">
+      <div class="field"><label>Course / Branch</label><input type="text" value="B.Tech — Computer Science"></div>
+      <div class="field"><label>Year of Study</label><input type="text" value="3rd Year"></div>
+    </div>`
+  },
+  {
+    key:'skills', eyebrow:'STEP 3 OF 9', title:'Skills',
+    body:`<div class="field"><label>Select your skills</label>
+    <div class="chip-field" id="skillChips">
+      <span class="chip on">Python</span><span class="chip on">Machine Learning</span><span class="chip on">SQL</span>
+      <span class="chip">JavaScript</span><span class="chip">Data Viz</span><span class="chip">Cloud</span><span class="chip">Java</span><span class="chip">Statistics</span>
+    </div></div>`
+  },
+  {
+    key:'levels', eyebrow:'STEP 4 OF 9', title:'Skill Levels',
+    body:`<div class="level-opt on" data-level><span><span class="lname">Python — Intermediate</span><span class="ldesc" style="display:block;">Comfortable with core language + libraries</span></span><span class="radio-dot"></span></div>
+    <div class="level-opt" data-level><span><span class="lname">Machine Learning — Intermediate</span><span class="ldesc" style="display:block;">Built a few supervised learning models</span></span><span class="radio-dot"></span></div>
+    <div class="level-opt" data-level><span><span class="lname">SQL — Advanced</span><span class="ldesc" style="display:block;">Confident with joins, subqueries, optimisation</span></span><span class="radio-dot"></span></div>`
+  },
+  {
+    key:'interests', eyebrow:'STEP 5 OF 9', title:'Interests',
+    body:`<div class="field"><label>What are you interested in?</label>
+    <div class="chip-field">
+      <span class="chip purple on">AI</span><span class="chip purple on">Data Science</span><span class="chip purple on">Cloud</span>
+      <span class="chip purple">Web Dev</span><span class="chip purple">Cybersecurity</span><span class="chip purple">Robotics</span>
+    </div></div>`
+  },
+  {
+    key:'goals', eyebrow:'STEP 6 OF 9', title:'Learning Goals',
+    body:`<div class="goal-card-ob on"><span class="check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span><div><div style="font-weight:600;font-size:14px;color:var(--navy);">Become proficient in Machine Learning</div><div style="font-size:12.5px;color:var(--ink-soft);margin-top:2px;">Target: Advanced level in 6 months</div></div></div>
+    <div class="goal-card-ob"><span class="radio-dot"></span><div><div style="font-weight:600;font-size:14px;color:var(--navy);">Master SQL for data analysis</div></div></div>
+    <div class="goal-card-ob"><span class="radio-dot"></span><div><div style="font-weight:600;font-size:14px;color:var(--navy);">Build a full-stack web project</div></div></div>`
+  },
+  {
+    key:'projects', eyebrow:'STEP 7 OF 9', title:'Projects',
+    body:`<div class="proj-card-mini"><div><div style="font-weight:600;font-size:14px;color:var(--navy);">Email Spam Classifier</div><div style="font-size:12px;color:var(--ink-soft);">Python · scikit-learn</div></div><span class="pill pill-green">Added</span></div>
+    <div class="proj-card-mini"><div><div style="font-weight:600;font-size:14px;color:var(--navy);">Student Grade Predictor</div><div style="font-size:12px;color:var(--ink-soft);">Python · Pandas</div></div><span class="pill pill-green">Added</span></div>
+    <div class="add-proj-btn">+ Add another project</div>`
+  },
+  {
+    key:'progress', eyebrow:'STEP 8 OF 9', title:'Learning Progress',
+    body:`<div class="field"><label>Python — 90%</label><div class="bar-track"><div class="bar-fill" style="width:90%;"></div></div></div>
+    <div class="field"><label>Machine Learning — 72%</label><div class="bar-track"><div class="bar-fill" style="width:72%;"></div></div></div>
+    <div class="field"><label>SQL — 80%</label><div class="bar-track"><div class="bar-fill" style="width:80%;"></div></div></div>`
+  },
+  {
+    key:'review', eyebrow:'STEP 9 OF 9', title:'Review Portfolio',
+    body:`<div class="review-item"><span class="rk">Name</span><span class="rv">Aarav Patel</span></div>
+    <div class="review-item"><span class="rk">College</span><span class="rv">SRM Institute of Science & Technology</span></div>
+    <div class="review-item"><span class="rk">Skills</span><span class="rv">Python, Machine Learning, SQL</span></div>
+    <div class="review-item"><span class="rk">Learning Goal</span><span class="rv">Become proficient in ML</span></div>
+    <div class="review-item"><span class="rk">Interests</span><span class="rv">AI, Data Science, Cloud</span></div>
+    <div class="review-item"><span class="rk">Projects</span><span class="rv">2 added</span></div>`
+  },
+];
+let obIndex = 0;
+function renderOb(){
+  const wrap = document.getElementById('obSteps');
+  wrap.innerHTML = obSteps.map((s,i)=>`<i class="${i<=obIndex?'done':''}"></i>`).join('');
+  const pct = Math.round(((obIndex+1)/obSteps.length)*100);
+  document.getElementById('obPct').textContent = pct+'%';
+
+  if(obIndex < obSteps.length){
+    const s = obSteps[obIndex];
+    document.getElementById('obCard').innerHTML = `<div class="step-eyebrow">${s.eyebrow}</div><h2>${s.title}</h2>${s.body}`;
+    document.getElementById('obNext').textContent = obIndex===obSteps.length-1 ? 'Complete Portfolio' : 'Continue';
+    document.getElementById('obBack').style.visibility = obIndex===0 ? 'hidden':'visible';
+    document.querySelector('.ob-progress-wrap').style.display='block';
+    document.querySelector('.ob-note').style.display='flex';
+    document.getElementById('obCard').style.display='block';
+    document.querySelector('.ob-nav').style.display='flex';
+  }
+}
+document.getElementById('obNext').addEventListener('click', ()=>{
+  if(obIndex < obSteps.length-1){ obIndex++; renderOb(); }
+  else{
+    // complete
+    document.querySelector('.ob-progress-wrap').style.display='none';
+    document.querySelector('.ob-note').style.display='none';
+    document.querySelector('.ob-nav').style.display='none';
+    document.getElementById('obCard').innerHTML = `
+      <div class="complete-screen">
+        <div class="complete-check"><svg viewBox="0 0 24 24" stroke="#fff" stroke-width="3" fill="none" style="width:40px;height:40px;"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <h2 style="margin-bottom:10px;">Portfolio Complete ✓</h2>
+        <p style="color:var(--ink-soft); font-size:15px; max-width:380px; margin:0 auto 30px;">Your portfolio helps PeerMatch find better learning matches.</p>
+        <button class="btn btn-primary" data-go="dashboard">Enter Dashboard</button>
+      </div>`;
+  }
+});
+document.getElementById('obBack').addEventListener('click', ()=>{ if(obIndex>0){ obIndex--; renderOb(); } });
+renderOb();
+
+// chip toggle (event delegation)
+document.addEventListener('click', e=>{
+  const chip = e.target.closest('#skillChips .chip, .goal-card-ob, .level-opt');
+  if(chip && chip.closest('#onboarding')){
+    if(chip.classList.contains('chip')){ chip.classList.toggle('on'); }
+    else if(chip.classList.contains('goal-card-ob')){
+      chip.parentElement.querySelectorAll('.goal-card-ob').forEach(g=>g.classList.remove('on'));
+      chip.classList.add('on');
+    } else if(chip.classList.contains('level-opt')){
+      chip.classList.toggle('on');
+    }
+  }
+  // portfolio page interest/skill chips toggle too
+  if(e.target.closest('#portfolio .chip')){ e.target.closest('.chip').classList.toggle('on'); }
+});
+
+/* ============================================================
+   ASSESSMENT interactions
+   ============================================================ */
+document.addEventListener('click', e=>{
+  const opt = e.target.closest('.opt-row');
+  if(opt && opt.closest('#assessment')){
+    opt.parentElement.querySelectorAll('.opt-row').forEach(o=>o.classList.remove('sel'));
+    opt.classList.add('sel');
+  }
+});
+document.getElementById('submitAssessBtn').addEventListener('click', ()=>{
+  document.getElementById('assessResult').style.display='block';
+  document.getElementById('assessResult').scrollIntoView({behavior:'smooth', block:'center'});
+});
+
+/* ============================================================
+   PERRING HELP — scoped chat assistant
+   ============================================================ */
+const pfBtn = document.getElementById('pf-btn');
+const pfPanel = document.getElementById('pf-panel');
+const pfBody = document.getElementById('pf-body');
+const pfInput = document.getElementById('pf-input');
+document.getElementById('pfClose').addEventListener('click', ()=>pfPanel.classList.remove('open'));
+pfBtn.addEventListener('click', ()=>{
+  pfPanel.classList.toggle('open');
+  if(pfBody.children.length===0) seedPf();
+});
+
+const suggested = [
+  "How can I find a suitable peer?",
+  "Why was this peer recommended?",
+  "How does AI matching work?",
+  "How do I update my portfolio?",
+  "How can I verify my skills?",
+  "How does my progress affect recommendations?"
+];
+const kb = [
+  {kw:['find','suitable','peer','partner'], a:"Head to the Recommendations page — PeerMatch ranks every possible partner by compatibility, using your verified skills, goals and progress. Your top match sits at the top."},
+  {kw:['why','recommend','recommended'], a:"Each match comes with a compatibility breakdown — Skill Match, Goal Match, Interest Match and Progress Match — visible on the AI Analyser page under 'View Full Analysis'."},
+  {kw:['how','ai','match','matching','work','analyser','analyze','analyse'], a:"The AI Analyser reads your verified skills, learning goals, interests and current progress, then compares them against every other student's portfolio to calculate a Compatibility Score."},
+  {kw:['update','portfolio','edit'], a:"Open your Portfolio page and select 'Edit Portfolio'. You can update skills, projects, goals and progress any time — PeerMatch keeps learning from your latest data."},
+  {kw:['verify','verification','assessment','mcq'], a:"Go to the Assessment page for the skill you want to verify. Complete the AI-proctored MCQ test — a passing score marks that skill as Verified ✓ on your portfolio."},
+  {kw:['progress','affect'], a:"As your progress bar for a skill moves up, the AI Analyser re-runs your compatibility scores — better progress can surface new, better-fitting peers."},
+  {kw:['connect'], a:"On any recommendation card, tap 'Connect with Peer' to start a collaboration with that student."},
+  {kw:['compatibility','score'], a:"Compatibility Score is a weighted blend of Skill Match, Goal Match, Interest Match and Progress Match — shown as a ring with the percentage in the centre."},
+];
+function pfAnswer(text){
+  const t = text.toLowerCase();
+  for(const item of kb){ if(item.kw.some(k=>t.includes(k))) return item.a; }
+  return "I’m Perring Help. I can only help with PeerMatch and peer-learning related questions.";
+}
+function addMsg(text, who){
+  const d = document.createElement('div');
+  d.className = 'pf-msg '+who;
+  d.textContent = text;
+  pfBody.appendChild(d);
+  pfBody.scrollTop = pfBody.scrollHeight;
+}
+function seedPf(){
+  addMsg("Hi, I'm Perring Help — ask me anything about PeerMatch or peer learning.", 'bot');
+  const s = document.createElement('div');
+  s.className = 'pf-suggest';
+  suggested.forEach(q=>{
+    const b = document.createElement('button');
+    b.className='pf-sugg-btn'; b.textContent = q;
+    b.addEventListener('click', ()=>{ addMsg(q,'user'); setTimeout(()=>addMsg(pfAnswer(q),'bot'), 350); });
+    s.appendChild(b);
+  });
+  pfBody.appendChild(s);
+}
+function sendPf(){
+  const val = pfInput.value.trim();
+  if(!val) return;
+  addMsg(val,'user');
+  pfInput.value='';
+  setTimeout(()=>addMsg(pfAnswer(val),'bot'), 350);
+}
+document.getElementById('pf-send').addEventListener('click', sendPf);
+pfInput.addEventListener('keydown', e=>{ if(e.key==='Enter') sendPf(); });
+</script>
+</body>
+</html>
